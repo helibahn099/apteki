@@ -1,0 +1,664 @@
+openapi: 3.0.3
+info:
+  title: Savvy Meds API
+  version: 0.1.0
+  description: |
+    API сервиса поиска лекарств в аптеках Бишкека. Суммы — в тыйынах (1 сом = 100 тыйын), валюта KGS.
+    Ошибки возвращаются в формате {error, message}; каждый ответ содержит заголовок x-request-id.
+    Статусы заказа: created, awaiting_payment, paid, search_in_progress, search_completed, processing_error.
+servers:
+  - url: http://localhost:8080
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: {type: string}
+        message: {type: string}
+paths:
+  /health:
+    get:
+      tags: ["Система"]
+      summary: "Проверка работоспособности"
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /health/ready:
+    get:
+      tags: ["Система"]
+      summary: "Готовность (доступность БД)"
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/auth/channels:
+    get:
+      tags: ["Auth"]
+      summary: "Доступные каналы доставки OTP"
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/auth/otp/request:
+    post:
+      tags: ["Auth"]
+      summary: "Запрос одноразового кода по номеру телефона (лимит повторов и 5 кодов в час)"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/auth/otp/verify:
+    post:
+      tags: ["Auth"]
+      summary: "Проверка кода, выдача JWT access + refresh"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/auth/refresh:
+    post:
+      tags: ["Auth"]
+      summary: "Обновление токенов (ротация refresh)"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/auth/logout:
+    post:
+      tags: ["Auth"]
+      summary: "Выход: отзыв текущей сессии"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/auth/logout-all:
+    post:
+      tags: ["Auth"]
+      summary: "Выход со всех устройств"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/users/me:
+    get:
+      tags: ["Users"]
+      summary: "Профиль пользователя"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+    patch:
+      tags: ["Users"]
+      summary: "Изменение отображаемого имени"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/users/me/orders:
+    get:
+      tags: ["Users"]
+      summary: "История поисков пользователя (только свои заказы)"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/medications/catalog:
+    get:
+      tags: ["Medication"]
+      summary: "Поиск по справочнику препаратов (?q=)"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/search/precheck:
+    post:
+      tags: ["Search"]
+      summary: "Предпроверка до оплаты: только количество аптек в зоне и цена"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/search/orders:
+    post:
+      tags: ["Search"]
+      summary: "Создание заказа поиска (до 7 полей на препарат, единица по умолчанию «шт», чёрный список)"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/search/orders/{id}:
+    get:
+      tags: ["Search"]
+      summary: "Заказ и его статус; при ошибке — search_id и ссылка на @helibahn"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/search/orders/{id}/repeat:
+    post:
+      tags: ["Search"]
+      summary: "Повторить поиск по прошлому заказу"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/search/orders/{id}/history:
+    get:
+      tags: ["Search"]
+      summary: "История статусов заказа"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/search/orders/{id}/results:
+    get:
+      tags: ["Search"]
+      summary: "Результаты: до 15 аптек, FullMatch/PartialMatch, жёсткий минимум 1, мягкий 3"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/search/orders/{id}/payment:
+    post:
+      tags: ["Payments"]
+      summary: "Выставить счёт (QR). Идемпотентно"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+    get:
+      tags: ["Payments"]
+      summary: "Статус платежа"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/payments/webhook/{provider}:
+    post:
+      tags: ["Payments"]
+      summary: "Webhook платёжного провайдера (подпись обязательна; повтор не запускает поиск)"
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/payments/mock/{payment_id}/confirm:
+    post:
+      tags: ["Payments"]
+      summary: "Имитация оплаты (только MOCK_PAYMENT_ENABLED=true)"
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/chats:
+    get:
+      tags: ["Chat"]
+      summary: "Чаты пользователя (?archived=true — архив)"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/chats/{id}:
+    get:
+      tags: ["Chat"]
+      summary: "Чат пользователя с аптекой"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/chats/{id}/messages:
+    get:
+      tags: ["Chat"]
+      summary: "Сообщения чата (?after=)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+    post:
+      tags: ["Chat"]
+      summary: "Отправить сообщение (только 48 ч от оплаты, затем — только чтение)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/pharmacies:
+    get:
+      tags: ["Pharmacy"]
+      summary: "Публичный список аптек"
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/pharmacy-panel/requests:
+    get:
+      tags: ["Pharmacy panel"]
+      summary: "Панель: входящие запросы аптеки (?status=pending|answered|expired|failed). Без данных пользователя"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/pharmacy-panel/requests/{id}:
+    get:
+      tags: ["Pharmacy panel"]
+      summary: "Панель: детали запроса (только препараты)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/pharmacy-panel/requests/{id}/answer:
+    post:
+      tags: ["Pharmacy panel"]
+      summary: "Панель: ответ сотрудника — есть/частично/нет + количество + цена (тыйын)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/pharmacy-panel/stats:
+    get:
+      tags: ["Pharmacy panel"]
+      summary: "Панель (администратор аптеки): статистика активности, количество клиентов (?days=)"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/pharmacy-panel/chats:
+    get:
+      tags: ["Pharmacy panel"]
+      summary: "Панель: чаты аптеки (клиент — анонимный псевдоним, без телефона)"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/pharmacy-panel/chats/{id}/messages:
+    get:
+      tags: ["Pharmacy panel"]
+      summary: "Панель: сообщения чата"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+    post:
+      tags: ["Pharmacy panel"]
+      summary: "Панель: ответить в чате"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/admin/pharmacies:
+    post:
+      tags: ["Admin"]
+      summary: "Админ: создать аптеку"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/admin/pharmacies/{id}/locations:
+    post:
+      tags: ["Admin"]
+      summary: "Админ: добавить торговую точку (координаты)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/admin/pharmacies/{id}/integration:
+    put:
+      tags: ["Admin"]
+      summary: "Админ: настроить интеграцию (mock, manual, ...)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/admin/pharmacies/{id}/staff:
+    post:
+      tags: ["Admin"]
+      summary: "Админ: назначить сотрудника/администратора аптеки по телефону"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /api/v1/ai/status:
+    get:
+      tags: ["AI"]
+      summary: "Состояние ИИ-модуля (Gemini Flash, заглушка)"
+      security: [{bearer: []}]
+      responses:
+        '200': {description: Успешно}
+        '4XX':
+          description: Ошибка запроса/доступа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}

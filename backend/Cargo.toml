@@ -1,0 +1,49 @@
+[package]
+name = "savvy-meds-backend"
+version = "0.1.0"
+edition = "2021"
+description = "Бэкенд сервиса поиска лекарств в аптеках Бишкека (модульный монолит)"
+publish = false
+
+[lib]
+name = "savvy_meds"
+path = "src/lib.rs"
+
+[[bin]]
+name = "savvy-meds-backend"
+path = "src/main.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace", "request-id", "cors", "timeout", "limit", "util"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono", "json", "migrate", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter", "fmt"] }
+jsonwebtoken = "9"
+rand = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+subtle = "2"
+thiserror = "2"
+anyhow = "1"
+async-trait = "0.1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+dotenvy = "0.15"
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+tokio = { version = "1", features = ["full", "test-util"] }
+serde_json = "1"
