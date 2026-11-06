@@ -85,5 +85,5 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres cargo test   #
 
 ## CI
 
-`.github/workflows/ci.yml`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, `cargo build --release`.
+Файл CI хранится в `ci/github-workflow-ci.yml` (у GitHub App нет права `workflows`, поэтому его нужно один раз перенести в `.github/workflows/ci.yml` через веб-интерфейс GitHub или локальный `git push`). Шаги: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, `cargo build --release`.
 Чтобы блокировать merge при ошибке, включите в GitHub → Settings → Branches правило защиты `main` с обязательной проверкой `backend`.
