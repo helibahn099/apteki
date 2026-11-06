@@ -1,3 +1,9 @@
 target/
+backend/target/
 .env
+backend/.env
+*.env
 .logs/
+mobile/.logs/
+backend/.abacus.donotdelete
+mobile/.abacus.donotdelete
